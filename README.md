@@ -1,0 +1,1 @@
+# DeviceStatusLatency_Bescom
