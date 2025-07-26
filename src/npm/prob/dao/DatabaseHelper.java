@@ -40,7 +40,9 @@ public class DatabaseHelper {
             st1 = connection.createStatement();
             // String query = "select node.DEVICE_IP,node.DEVICE_NAME,node.DEVICE_TYPE,node.GROUP_NAME,node.COMPANY,node.LOCATION,node.DISTRICT,node.STATE,node.ZONE,parm.LATENCY_HISTORY,parm.LATENCY_THRESHOLD,mon.NODE_STATUS FROM ADD_NODE node JOIN NODE_PARAMETER parm ON node.DEVICE_IP=parm.DEVICE_IP JOIN node_monitoring mon ON node.DEVICE_IP=mon.NODE_IP  WHERE parm.MONITORING='yes' ORDER BY node.ID ";
             // String query = "select node.DEVICE_IP,node.DEVICE_NAME,node.DEVICE_TYPE,node.GROUP_NAME,node.COMPANY,node.LOCATION,node.DISTRICT,node.STATE,node.ZONE,parm.LATENCY_HISTORY,parm.LATENCY_THRESHOLD,mon.NODE_STATUS FROM ADD_NODE node JOIN NODE_PARAMETER parm ON node.DEVICE_IP=parm.DEVICE_IP JOIN node_monitoring mon ON node.DEVICE_IP=mon.NODE_IP  WHERE parm.MONITORING='yes' ORDER BY node.ID ";
-            String query = "select node.DEVICE_IP,node.DEVICE_NAME,node.DEVICE_TYPE,node.GROUP_NAME,node.COMPANY,node.LOCATION,node.DISTRICT,node.STATE,node.ZONE,parm.LATENCY_HISTORY,parm.LATENCY_THRESHOLD,mon.NODE_STATUS FROM ADD_NODE node JOIN NODE_PARAMETER parm ON node.DEVICE_IP=parm.DEVICE_IP JOIN node_monitoring mon ON node.DEVICE_IP=mon.NODE_IP  WHERE parm.MONITORING='yes'  ORDER BY node.ID ";
+            String query = "select node.DEVICE_IP,node.DEVICE_NAME,node.DEVICE_TYPE,node.GROUP_NAME,node.COMPANY,node.LOCATION,node.DISTRICT,node.STATE,node.ZONE,"
+                    + "parm.LATENCY_HISTORY,parm.LATENCY_THRESHOLD,mon.NODE_STATUS FROM ADD_NODE node JOIN NODE_PARAMETER parm ON node.DEVICE_IP=parm.DEVICE_IP "
+                    + "JOIN node_monitoring mon ON node.DEVICE_IP=mon.NODE_IP  WHERE parm.MONITORING='yes'  ORDER BY node.ID ";
 
             rs = st1.executeQuery(query);
             while (rs.next()) {
