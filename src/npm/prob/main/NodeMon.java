@@ -5,6 +5,8 @@
  */
 package npm.prob.main;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,10 +35,16 @@ import org.icmp4j.IcmpPingResponse;
 import org.icmp4j.IcmpPingUtil;
 import npm.prob.dao.DatabaseHelper;
 import npm.prob.datasource.Datasource;
+import npm.prob.model.EventLog;
 
 import npm.prob.model.NodeStausModel;
 import npm.prob.model.LatencyModel;
 import npm.prob.model.NodeMasterModel;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 /**
  *
@@ -48,6 +56,11 @@ public class NodeMon implements Runnable {
     String isAffected = "";
     String problem = "";
     String serviceId = "";
+
+    private static final int MAX_RETRIES = 3;
+    private static final int RETRY_DELAY_MS = 2000;
+
+    private final ObjectMapper mapper = new ObjectMapper();
 
     NodeMon(List liste) {
         this.ip_list = liste;
@@ -332,7 +345,9 @@ public class NodeMon implements Runnable {
                                 isAffected = "1";
                                 serviceId = "device_status";
                                 problem = "problem";
-                                insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 4, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+                                // insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 4, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+
+                                sendEventLogToApi(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 4, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE(), 0);
 
                             } else if (router_status_xml.equals("Down3") && router_status.equals("Down")) {
                                 //    //System.out.println("%%%%%..Skip Down condition ");
@@ -346,7 +361,8 @@ public class NodeMon implements Runnable {
                                 isAffected = "0";
                                 serviceId = "device_status";
                                 problem = "Cleared";
-                                insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+//                                insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+                                sendEventLogToApi(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE(), 0);
                                 try {
                                     StatusChangeDiff t22 = null;
                                     t22 = new StatusChangeDiff();
@@ -375,7 +391,9 @@ public class NodeMon implements Runnable {
                                 isAffected = "0";
                                 serviceId = "device_status";
                                 problem = "Cleared";
-                                insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+                                //insertIntoEventLog(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE());
+                                sendEventLogToApi(device_ip, nodeData.getDEVICE_NAME(), eventMsg1, 0, "PING ICMP", event_time, netadminMsg, isAffected, problem, serviceId, nodeData.getDEVICE_TYPE(), 0);
+
                                 try {
                                     StatusChangeDiff t22 = null;
                                     t22 = new StatusChangeDiff();
@@ -462,8 +480,8 @@ public class NodeMon implements Runnable {
                 problem = "problem";
                 eventMsg1 = "Alert: Latency threshold crossed above " + latency_threshold + "ms || " + device_ip;
                 netadminMsg = "Latency Threshold:High" + avg_responce + " latency threshold value=" + latency_threshold + " latency status=High ip=" + device_ip;
-                insertIntoEventLog(device_ip, deviceName, eventMsg1, 4, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType);
-
+//                insertIntoEventLog(device_ip, deviceName, eventMsg1, 4, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType);
+                sendEventLogToApi(device_ip, deviceName, eventMsg1, 4, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType, 0);
             } else if (avg_responce < latency_threshold && h_latencystatus.equals("High")) {
                 System.out.println("Latency Threshold:Low" + avg_responce + " latency threshold value=" + latency_threshold + " latency status=Low ip=" + device_ip);
                 NodeStatusLatencyMonitoring.latency_map.put(device_ip, "Low");
@@ -473,7 +491,8 @@ public class NodeMon implements Runnable {
                 netadminMsg = "Latency Threshold:Low" + avg_responce + " latency threshold value=" + latency_threshold + " latency status=Low ip=" + device_ip;
                 isAffected = "0";
                 problem = "Cleared";
-                insertIntoEventLog(device_ip, deviceName, eventMsg1, 0, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType);
+//                insertIntoEventLog(device_ip, deviceName, eventMsg1, 0, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType);
+                sendEventLogToApi(device_ip, deviceName, eventMsg1, 0, "Latency threshold", thresholdTime, netadminMsg, isAffected, problem, serviceId, deviceType, 0);
             }
         } catch (Exception e4) {
             System.out.println(" latency threshold exception:" + e4);
@@ -568,6 +587,87 @@ public class NodeMon implements Runnable {
             } catch (Exception exp) {
                 System.out.println("excep:" + exp);
             }
+        }
+    }
+
+    public void sendEventLogToApi(String deviceID, String deviceName, String eventMsg, int severity, String serviceName, Timestamp evenTimestamp,
+            String netadmin_msg, String isAffected, String problem, String serviceId, String deviceType, int attempt) {
+        EventLog log = new EventLog();
+        log.setDeviceId(deviceID);
+        log.setDeviceName(deviceName);
+        log.setEventMsg(eventMsg);
+        log.setSeverity(String.valueOf(severity));
+        log.setServiceName(serviceName);
+        log.setEventTimestamp(evenTimestamp);
+        log.setNetadminMsg(netadmin_msg);
+        log.setIsaffected(Integer.valueOf(isAffected));
+        log.setProblemClear(problem);
+        log.setServiceID(serviceId);
+        log.setDeviceType(deviceType);
+
+        System.out.println("service id = " + serviceId);
+        System.out.println("sAffected = " + isAffected);
+
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            String json = mapper.writeValueAsString(log);
+            HttpPost request = new HttpPost("http://localhost:8083/api/event/log"); // adjust host/port
+            request.setHeader("Content-Type", "application/json");
+            request.setEntity(new StringEntity(json));
+
+            CloseableHttpResponse response = httpClient.execute(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+
+            if (statusCode >= 200 && statusCode < 300) {
+                System.out.println("Log sent successfully: " + statusCode);
+            } else {
+                System.err.println("Failed to send log, status: " + statusCode);
+                retryIfNeeded(log, attempt);
+            }
+
+            response.close();
+        } catch (IOException e) {
+            System.err.println("Exception while sending log: " + e.getMessage());
+            retryIfNeeded(log, attempt);
+        } finally {
+            try {
+                httpClient.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    private void retryIfNeeded(EventLog log, int attempt) {
+        if (attempt < MAX_RETRIES) {
+            System.out.println("Retrying sendEventLogToApi... Attempt " + (attempt + 1));
+            try {
+                Thread.sleep(RETRY_DELAY_MS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt(); // Preserve interrupt status
+                return;
+            }
+
+            // Retry the API call with incremented attempt count
+            sendEventLogToApi(
+                    log.getDeviceId(),
+                    log.getDeviceName(),
+                    log.getEventMsg(),
+                    Integer.valueOf(log.getSeverity()),
+                    log.getServiceName(),
+                    log.getEventTimestamp(),
+                    log.getNetadminMsg(),
+                    log.getIsaffected().toString(),
+                    log.getProblemClear(),
+                    log.getServiceID(),
+                    log.getDeviceType(),
+                    attempt + 1
+            );
+        } else {
+            System.err.println("Max retries reached. Dropping event log.");
         }
     }
 
